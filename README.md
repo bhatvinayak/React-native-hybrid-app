@@ -1,97 +1,284 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# 🚀 HybridApp — React Native + Native Android (Kotlin) Integration POC
 
-# Getting Started
+## HybridApp is a proof-of-concept demonstrating seamless integration between React Native and native Android (Kotlin) screens in a single mobile app.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+It allows React Native to:
 
-## Step 1: Start Metro
+- Render the first screen (React side)
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+- Collect user input (name and age)
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+- Send that data to a fully native Kotlin Activity
 
-```sh
-# Using npm
-npm start
+- Display the passed data on the native screen
 
-# OR using Yarn
-yarn start
+This architecture is perfect for teams that want to combine the flexibility of React Native with the performance and power of native code.
+
+## 🧩 Features
+
+- 🟦 React Native entry screen for collecting input
+
+- 🤖 Native Android Activity rendered entirely in Kotlin
+
+- 🔄 Data passing from React Native → Native (via Intents)
+
+- ⏪ Smooth back navigation to React Native
+
+- ⚙️ Clean, modular bridge setup (NativeModules)
+
+## 📁 Folder Structure
+
+```
+HybridApp/
+├── App.js # React Native entry screen (with inputs)
+├── android/
+│ └── app/src/main/java/com/hybridapp/
+│ ├── NativeScreenActivity.kt # Native Android screen
+│ ├── NativeScreenModule.kt # Bridge module
+│ ├── NativeScreenPackage.kt # Bridge package registration
+│ ├── MainActivity.kt # Default RN Activity
+│ ├── MainApplication.kt # Registers custom packages
+│ └── AndroidManifest.xml # Activity declaration
+└── ios/
+├── NativeScreenViewController.swift # (Optional) Native iOS screen
+├── NativeScreenModule.swift # (Optional) Bridge for iOS
+└── HybridApp-Bridging-Header.h # Swift bridge header
 ```
 
-## Step 2: Build and run your app
+## 🛠️ Setup Instructions
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+### 1. Create a new React Native project
 
-### Android
+> npx @react-native-community/cli@latest init HybridApp
 
-```sh
-# Using npm
-npm run android
+> cd HybridApp
 
-# OR using Yarn
-yarn android
+### 2. Create a Kotlin Activity (Native Screen)
+
+> File: android/app/src/main/java/com/hybridapp/NativeScreenActivity.kt
+
+```
+package com.hybridapp
+
+import android.os.Bundle
+import androidx.appcompat.app.AppCompatActivity
+import android.widget.\*
+
+class NativeScreenActivity : AppCompatActivity() {
+override fun onCreate(savedInstanceState: Bundle?) {
+super.onCreate(savedInstanceState)
+
+        val name = intent.getStringExtra("name") ?: "Guest"
+        val age = intent.getIntExtra("age", 0)
+
+        val textView = TextView(this)
+        textView.text = "Hello $name, age $age — from Native Android!"
+        textView.textSize = 20f
+        textView.setPadding(100, 200, 100, 100)
+
+        val button = Button(this)
+        button.text = "Back to React Native"
+        button.setOnClickListener { finish() }
+
+        val layout = LinearLayout(this)
+        layout.orientation = LinearLayout.VERTICAL
+        layout.addView(textView)
+        layout.addView(button)
+
+        setContentView(layout)
+    }
+
+}
 ```
 
-### iOS
+### 3. Create a Native Module (Bridge)
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+> File: android/app/src/main/java/com/hybridapp/NativeScreenModule.kt
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+```
+package com.hybridapp
 
-```sh
-bundle install
+import android.content.Intent
+import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.bridge.ReactContextBaseJavaModule
+import com.facebook.react.bridge.ReactMethod
+
+class NativeScreenModule(private val reactContext: ReactApplicationContext) :
+ReactContextBaseJavaModule(reactContext) {
+
+    override fun getName(): String = "NativeScreen"
+
+    @ReactMethod
+    fun openNativeScreen(name: String, age: Int) {
+        val intent = Intent(reactContext, NativeScreenActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        intent.putExtra("name", name)
+        intent.putExtra("age", age)
+        reactContext.startActivity(intent)
+    }
+
+}
 ```
 
-Then, and every time you update your native dependencies, run:
+### 4. Register the Module
 
-```sh
-bundle exec pod install
+> File: android/app/src/main/java/com/hybridapp/NativeScreenPackage.kt
+
+```
+package com.hybridapp
+
+import com.facebook.react.ReactPackage
+import com.facebook.react.bridge.NativeModule
+import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.uimanager.ViewManager
+
+class NativeScreenPackage : ReactPackage {
+override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
+return listOf(NativeScreenModule(reactContext))
+}
+
+    override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> {
+        return emptyList()
+    }
+
+}
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+#### Then add this to your MainApplication.kt:
 
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
+```
+packages.add(NativeScreenPackage())
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+### 5. Declare the Activity in AndroidManifest.xml
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+> File: android/app/src/main/AndroidManifest.xml
 
-## Step 3: Modify your app
+```
+<activity
+  android:name=".NativeScreenActivity"
+  android:exported="false"
+  android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
+```
 
-Now that you have successfully run the app, let's make changes!
+6. Update the React Native UI
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+> File: ReactNativeScreen.tsx
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+```
+import React, { useState } from 'react';
+import {
+View,
+Text,
+TextInput,
+Button,
+NativeModules,
+Alert,
+} from 'react-native';
+const { NativeScreen } = NativeModules;
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+export default function ReactNativeScreen() {
+    const [name, setName] = useState('');
+    const [age, setAge] = useState('');
 
-## Congratulations! :tada:
+    const openNative = () => {
+    if (!name || !age) {
+    Alert.alert('Please enter both name and age');
+    return;
+    }
+    NativeScreen.openNativeScreen(name, parseInt(age));
+    };
 
-You've successfully run and modified your React Native App. :partying_face:
+    return (
+    <View
+    style={{
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 20,
+        }} >
+    <Text style={{ fontSize: 24, marginBottom: 20 }}>
+    React Native Screen
+    </Text>
 
-### Now what?
+        <TextInput
+            placeholder="Enter name"
+            value={name}
+            onChangeText={setName}
+            style={{
+            borderWidth: 1,
+            borderColor: '#ccc',
+            width: '80%',
+            padding: 10,
+            marginBottom: 10,
+            borderRadius: 8,
+            }}
+        />
+        <TextInput
+            placeholder="Enter age"
+            value={age}
+            onChangeText={setAge}
+            keyboardType="numeric"
+            style={{
+            borderWidth: 1,
+            borderColor: '#ccc',
+            width: '80%',
+            padding: 10,
+            marginBottom: 20,
+            borderRadius: 8,
+            }}
+        />
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+        <Button title="Open Native Screen" onPress={openNative} />
+        </View>
 
-# Troubleshooting
+    );
+}
+```
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+### 7. Run the app
 
-# Learn More
+> npx react-native run-android
 
-To learn more about React Native, take a look at the following resources:
+✅ Expected Flow
 
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+- React Native screen opens with two inputs — Name and Age.
+
+- User enters details and presses “Open Native Screen.”
+
+- The app navigates to the native Kotlin screen, showing the message:
+
+- Hello {Name}, age {age} — from Native Android!
+
+- Pressing “Back to React Native” closes the native screen and returns to React Native.
+
+## 💡 Optional iOS Implementation
+
+- To make this cross-platform:
+
+- Create NativeScreenViewController.swift
+
+- Create NativeScreenModule.swift
+
+- Expose it using a bridging header
+
+- Call NativeScreen.openNativeScreen(name, age) the same way from React Native.
+
+## 📚 Learnings
+
+- How to invoke native Activities/ViewControllers from React Native.
+
+- How to pass data across the JS ↔ Native bridge.
+
+- How to embed hybrid navigation in a modular architecture.
+
+- Useful pattern for apps migrating from native → React Native.
+
+## 🧠 Future Enhancements
+
+- Pass data back from native → React Native (using DeviceEventEmitter or ActivityEventListener).
+
+- Add React Navigation integration for unified hybrid navigation.
+
+- Create shared Kotlin/Swift base bridges for scalability.
+
+- Extend native UI with a more complex layout or external SDK integration.
